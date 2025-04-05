@@ -4,8 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/google/uuid" // Untuk generate UUID
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/wafi04/vazzuniversebackend/pkg/utils"
 )
 
 type UserRepositories struct {
@@ -19,14 +20,14 @@ func NewUserRepositories(DB *sqlx.DB) *UserRepositories {
 }
 
 // Create inserts a new user into the database
-func (r *UserRepositories) Create(ctx context.Context, user CreateUSer) (*UserData, error) {
+func (r *UserRepositories) Create(ctx context.Context, user CreateUSer) (*UserData, *utils.ResponseError) {
     // Generate UUID untuk user_id
     userID := uuid.New().String()
 
     // Hash password sebelum disimpan
     hashedPassword, err := HashPassword(*user.Password)
     if err != nil {
-        return nil, err
+        return nil, ErrInvalidCredentialsError()
     }
 
     now := time.Now()
@@ -65,7 +66,7 @@ func (r *UserRepositories) Create(ctx context.Context, user CreateUSer) (*UserDa
     var result UserData
     err = row.StructScan(&result)
     if err != nil {
-        return nil, err
+        return nil, ErrEmailTakenError(user.Email)
     }
 
     return &result, nil
@@ -80,6 +81,38 @@ func (r *UserRepositories) GetUserByID(ctx context.Context, userID string) (*Use
 
     var userData UserData
     err := r.DB.GetContext(ctx, &userData, query, userID)
+    if err != nil {
+        return nil, err
+    }
+
+    return &userData, nil
+}
+
+
+func (r *UserRepositories) GetUserByUsername(ctx context.Context, username string) (*UserData, error) {
+    query := `
+    SELECT user_id, username, email, role, balance, is_deleted, created_at, updated_at
+    FROM users
+    WHERE username = $1 AND is_deleted = false
+    `
+
+    var userData UserData
+    err := r.DB.GetContext(ctx, &userData, query, username)
+    if err != nil {
+        return nil, err
+    }
+
+    return &userData, nil
+}
+func (r *UserRepositories) GetUserByEmail(ctx context.Context, email string) (*UserData, error) {
+    query := `
+    SELECT user_id, username, email, role, balance, is_deleted, created_at, updated_at
+    FROM users
+    WHERE email = $1 AND is_deleted = false
+    `
+
+    var userData UserData
+    err := r.DB.GetContext(ctx, &userData, query, email)
     if err != nil {
         return nil, err
     }

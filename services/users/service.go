@@ -3,6 +3,8 @@ package users
 import (
 	"context"
 	"errors"
+
+	"github.com/wafi04/vazzuniversebackend/pkg/utils"
 )
 
 type UserService struct {
@@ -18,18 +20,38 @@ type  UserServices interface {
 	create (ctx context.Context,req *CreateUSer) (*UserData,error)
 }
 
-func (us *UserService) Create(ctx context.Context, req *CreateUSer) (*UserData, error) {
-    // Validasi input jika diperlukan
-    if req.Username == "" || req.Email == ""  {
-        return nil, errors.New("username, email, and password are required")
-    }
+func (us *UserService) Create(ctx context.Context, req *CreateUSer) (*UserData, *utils.ResponseError) {
+ 	if req.Username == "" {
+		return nil, ErrUsernameTakenError(req.Username)
+	}
+	if req.Email == "" {
+		return nil, ErrEmailTakenError(req.Email)
+	}
+	
+	existingUser, err := us.userRepo.GetUserByUsername(ctx, req.Username)
+	if err != nil {
+		if errors.Is(err,errors.New("not found")) {
+		} else {
+			return nil, ErrInternalServerError(err)
+		}
+	} else if existingUser != nil {
+		// User exists
+		return nil, ErrUsernameTakenError(req.Username)
+	}
 
-    // Panggil repository untuk menyimpan data user
+	existingEmail, err := us.userRepo.GetUserByEmail(ctx, req.Email)
+	if err != nil {
+		if errors.Is(err, errors.New("not found")) {
+		} else {
+			return nil, ErrInternalServerError(err)
+		}
+	} else if existingEmail != nil {
+		return nil, ErrEmailTakenError(req.Email)
+	}
+
     return us.userRepo.Create(ctx, *req)
 }
 
-// GetUserByID retrieves a user by their ID
 func (us *UserService) GetUserByID(ctx context.Context, userID string) (*UserData, error) {
-    // Panggil repository untuk mendapatkan data user
     return us.userRepo.GetUserByID(ctx, userID)
 }
