@@ -203,7 +203,7 @@ func SetTokenCookie(c *gin.Context, name, token string, duration int) {
 		token,
 		duration,
 		"/",
-		"localhost",
+		config.LoadEnv("APP_URL"),
 		secure,
 		true,
 	)

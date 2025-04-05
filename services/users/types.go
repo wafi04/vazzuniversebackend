@@ -13,7 +13,7 @@ const (
 
 type UserData struct {
 	UserID    string     `json:"userId" db:"user_id"`
-	Fullname  *string    `json:"fullName"  db:"full_name"`
+	FullName  *string    `json:"fullName"  db:"full_name"`
 	Username  string     `json:"username"  db:"username"`
 	Email     string     `json:"email"  db:"email"`
 	Password  *string    `json:"password,omitempty"  db:"password"`
@@ -31,6 +31,11 @@ type CreateUser struct {
 	Password *string `json:"password"`
 	Role     Role    `json:"role"`
 	Balance  int     `json:"balance"`
+}
+
+type LoginUser struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 type UpdateUser struct {

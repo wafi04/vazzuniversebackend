@@ -23,13 +23,14 @@ type SessionsData struct {
 }
 
 type CreateSession struct {
-	UserID      string     `json:"userId"       db:"user_id"`
-	AccessToken string     `json:"accessToken"  db:"access_token"`
-	IPAddress   string     `json:"ipAddress"    db:"ip_address"`
-	UserAgent   string     `json:"userAgent"    db:"user_agent"`
-	DeviceInfo  string     `json:"deviceInfo"   db:"device_info"`
-	ExpiresAt   *time.Time `json:"expiresAt"    db:"expires_at"`
-	IsAccess    bool       `json:"isAccess"     db:"is_access"`
+	UserID       string    `json:"userId"       db:"user_id"`
+	AccessToken  string    `json:"accessToken"  db:"access_token"`
+	IPAddress    string    `json:"ipAddress"    db:"ip_address"`
+	UserAgent    string    `json:"userAgent"    db:"user_agent"`
+	DeviceInfo   string    `json:"deviceInfo"   db:"device_info"`
+	ExpiresAt    time.Time `json:"expiresAt"    db:"expires_at"`
+	LastActivity time.Time `json:"lastActivity"  db:"last_activity"`
+	IsAccess     bool      `json:"isAccess"     db:"is_access"`
 }
 
 type CheckValidaty struct {

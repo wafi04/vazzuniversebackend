@@ -46,7 +46,7 @@ func (r *UserRepositories) Create(ctx context.Context, user CreateUser) (*UserDa
 	// Create user data
 	userData := UserData{
 		UserID:    userID,
-		Fullname:  user.FullName,
+		FullName:  user.FullName,
 		Username:  user.Username,
 		Email:     user.Email,
 		Role:      user.Role,
@@ -60,7 +60,7 @@ func (r *UserRepositories) Create(ctx context.Context, user CreateUser) (*UserDa
 	var result UserData
 	err = r.MainDB.QueryRowxContext(ctx, query,
 		userData.UserID,
-		userData.Fullname,
+		userData.FullName,
 		userData.Username,
 		userData.Email,
 		hashedPassword,
@@ -134,4 +134,43 @@ func (r *UserRepositories) GetUserByEmail(ctx context.Context, email string) (*U
 	}
 
 	return &userData, nil
+}
+
+func (r *UserRepositories) Login(ctx context.Context, req *LoginUser) (*UserData, error) {
+	query := `
+	SELECT
+		user_id, full_name, username, email, role, balance, is_deleted, created_at, updated_at, password_hash
+	FROM users
+	WHERE
+		username = $1 AND is_deleted = false
+	`
+
+	var user UserData
+	var passwordHash string
+
+	err := r.MainDB.QueryRowContext(ctx, query, req.Username).Scan(
+		&user.UserID,
+		&user.FullName,
+		&user.Username,
+		&user.Email,
+		&user.Role,
+		&user.Balance,
+		&user.IsDeleted,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+		&passwordHash,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errors.New(string(ErrInvalidCredentials))
+		}
+		return nil, err
+	}
+
+	if !ComparePassword(passwordHash, req.Password) {
+		return nil, errors.New(string(ErrInvalidPassword))
+	}
+
+	return &user, nil
 }

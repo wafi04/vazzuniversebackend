@@ -3,8 +3,11 @@ package users
 import (
 	"context"
 	"strings"
+	"time"
 
+	"github.com/wafi04/vazzuniversebackend/pkg/server/middlewares"
 	"github.com/wafi04/vazzuniversebackend/pkg/utils/response"
+	"github.com/wafi04/vazzuniversebackend/services/auth/sessions"
 )
 
 type UserService struct {
@@ -54,6 +57,46 @@ func (us *UserService) Create(ctx context.Context, req *CreateUser) (*UserData, 
 	}
 
 	return us.userRepo.Create(ctx, *req)
+}
+
+func (r *UserRepositories) LoginWithSession(ctx context.Context, req *LoginUser, sessionRepo *sessions.SessionRepo, ipAddress, userAgent, deviceInfo string) (*UserData, *sessions.SessionsData, error) {
+	// First authenticate the user
+	userData, err := r.Login(ctx, req)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	accessToken, err := middlewares.GenerateToken(&middlewares.UserData{
+		UserID:    userData.UserID,
+		Username:  userData.Username,
+		Fullname:  userData.FullName,
+		Email:     userData.Email,
+		Role:      string(userData.Role),
+		Balance:   userData.Balance,
+		CreatedAt: userData.CreatedAt,
+		UpdatedAt: userData.UpdatedAt,
+	}, 24)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	sessionReq := &sessions.CreateSession{
+		UserID:       userData.UserID,
+		AccessToken:  accessToken,
+		IPAddress:    ipAddress,
+		UserAgent:    userAgent,
+		DeviceInfo:   deviceInfo,
+		LastActivity: time.Now(),
+		IsAccess:     true,
+		ExpiresAt:    time.Now().Add(24 * time.Hour),
+	}
+
+	session, err := sessionRepo.Create(ctx, sessionReq)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return userData, session, nil
 }
 
 func (us *UserService) GetUserByID(ctx context.Context, userID string) (*UserData, error) {
