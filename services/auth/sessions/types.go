@@ -2,6 +2,12 @@ package sessions
 
 import "time"
 
+var (
+	ErrSessionsInvalid  = "INVALID_SESSIONS"
+	ErrSessionsNotFound = "SESSIONS_NOT_FOUND"
+	ErrSessionsExpired  = "SESSIONS_EXPIRED"
+)
+
 type SessionsData struct {
 	SessionID    string     `json:"sessionId"      db:"session_id"`
 	UserID       string     `json:"userId"         db:"user_id"`
