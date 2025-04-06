@@ -2,6 +2,7 @@ package sessions
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -22,16 +23,22 @@ func NewSessionRepo(mainDB *sqlx.DB, replicaDB *sqlx.DB) *SessionRepo {
 func (sr *SessionRepo) Create(ctx context.Context, req *CreateSession) (*SessionsData, error) {
 
 	var session SessionsData
-	err := sr.MainDB.QueryRowContext(ctx, QueryInsert, req.SessionID, req.UserID, req.AccessToken, time.Now(), time.Now()).Scan(
+	err := sr.MainDB.QueryRowContext(ctx, QueryInsert, req.SessionID, req.UserID, req.AccessToken, req.IPAddress, req.UserAgent, req.DeviceInfo, req.LastActivity, req.IsAccess, req.ExpiresAt, time.Now(), time.Now()).Scan(
 		&session.SessionID,
 		&session.UserID,
 		&session.AccessToken,
+		&session.IPAddress,
+		&session.UserAgent,
+		&session.DeviceInfo,
+		&session.LastActivity,
+		&session.IsAccess,
+		&session.ExpiresAt,
 		&session.CreatedAt,
 		&session.UpdatedAt,
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.New(string(ErrSessionsInvalid))
 	}
 
 	return &session, nil
@@ -54,7 +61,7 @@ func (sr *SessionRepo) CheckValidatyUser(ctx context.Context, req *CheckValidaty
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.New(string(ErrSessionsInvalid))
 	}
 
 	return &session, nil
@@ -77,7 +84,7 @@ func (sr *SessionRepo) GetBySessionID(ctx context.Context, sessionID string) (*S
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.New(string(ErrSessionsInvalid))
 	}
 
 	return &session, nil
@@ -86,7 +93,7 @@ func (sr *SessionRepo) GetBySessionID(ctx context.Context, sessionID string) (*S
 func (sr *SessionRepo) GetByUserID(ctx context.Context, userID string) ([]*SessionsData, error) {
 	rows, err := sr.ReplicaDB.QueryContext(ctx, QueryGetByUserID, userID)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(string(ErrSessionsInvalid))
 	}
 	defer rows.Close()
 
@@ -107,13 +114,13 @@ func (sr *SessionRepo) GetByUserID(ctx context.Context, userID string) ([]*Sessi
 			&session.UpdatedAt,
 		)
 		if err != nil {
-			return nil, err
+			return nil, errors.New(string(ErrSessionsInvalid))
 		}
 		sessions = append(sessions, &session)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return nil, errors.New(string(ErrSessionsInvalid))
 	}
 
 	return sessions, nil

@@ -12,7 +12,12 @@ CREATE TABLE users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_users_role ON users(role);         -- Berguna untuk filter by role
+
+ALTER  TABLE  users  ADD COLUMN whatsapp VARCHAR(20);
+CREATE INDEX idx_users_role ON users(role); 
+
+
+CREATE INDEX  idx_users_whatsapp ON users(whatsapp);        -- Berguna untuk filter by role
 
 -- Indeks yang lebih mungkin sering digunakan dalam query:
 -- 1. Untuk pencarian kombinasi status aktif + role (contoh: user aktif dengan role 'Admin')

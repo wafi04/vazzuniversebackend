@@ -3,7 +3,7 @@ package users
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
-	"github.com/wafi04/vazzuniversebackend/pkg/server/middlewares"
+	"github.com/wafi04/vazzuniversebackend/services/auth/sessions"
 )
 
 type Users struct {
@@ -11,27 +11,20 @@ type Users struct {
 	ReplicaDB *sqlx.DB
 }
 
-func UsersSetUp(db *Users, router *gin.Engine) { // Add router parameter
+func UsersSetUp(db *Users, router *gin.Engine) {
 	userRepo := NewUserRepositories(db.MainDB, db.ReplicaDB)
-	userService := NewUserServices(userRepo)
+	sessionRepo := sessions.NewSessionRepo(db.MainDB, db.ReplicaDB)
+	userService := NewUserServices(userRepo, sessionRepo)
 	userController := NewUserController(userService)
 
-	// Register routes
 	RegisterUserRoutes(router, userController)
 }
 
 func RegisterUserRoutes(router *gin.Engine, controller *UserController) {
 	userGroup := router.Group("/api/users")
-	authGroup := userGroup.Use(middlewares.AuthMiddleware())
 	{
-		// userGroup.GET("/", controller.GetAllUsers)
-		authGroup.GET("/:id", controller.GetProfile)
-		userGroup.POST("/", controller.CreateUser)
-		// userGroup.PUT("/:id", controller.UpdateUser)
-		// userGroup.DELETE("/:id", controller.DeleteUser)
+		userGroup.POST("/register", controller.CreateUser)
+		userGroup.POST("/login", controller.Login)
 
-		// // Add more routes as needed
-		// userGroup.POST("/login", controller.Login)
-		// userGroup.POST("/logout", controller.Logout)
 	}
 }

@@ -2,12 +2,12 @@ package users
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/wafi04/vazzuniversebackend/pkg/server/middlewares"
 	"github.com/wafi04/vazzuniversebackend/pkg/utils/response"
-	"github.com/wafi04/vazzuniversebackend/services/auth/sessions"
 )
 
 type UserController struct {
@@ -135,16 +135,16 @@ func (uc *UserController) Login(ctx *gin.Context) {
 		return
 	}
 
-	user, session, err := uc.UserService.userRepo.LoginWithSession(
+	user, session, err := uc.UserService.LoginWithSession(
 		ctx.Request.Context(),
 		&loginReq,
-		(*sessions.SessionRepo)(uc.UserService.userRepo),
 		clientIP,
 		userAgent,
 		deviceInfo,
 	)
 
 	if err != nil {
+		log.Printf("Login failed: %v", err) // Add this line to see the actual error
 		respErr := response.NewResponseError(
 			http.StatusUnauthorized,
 			ErrUnauthorized,
@@ -184,6 +184,5 @@ func (uc *UserController) Logout(ctx *gin.Context) {
 	uc.UserService.userRepo.DeleteSession(ctx, userData.SessionID)
 
 	middlewares.ClearTokens(ctx)
-
 	response.Success(ctx, http.StatusOK, "Logout successful")
 }

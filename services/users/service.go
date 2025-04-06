@@ -2,6 +2,7 @@ package users
 
 import (
 	"context"
+	"log"
 	"strings"
 	"time"
 
@@ -12,16 +13,18 @@ import (
 )
 
 type UserService struct {
-	userRepo *UserRepositories
+	userRepo    *UserRepositories
+	sessionRepo *sessions.SessionRepo
 }
 
-func NewUserServices(userepo *UserRepositories) *UserService {
-	return &UserService{userRepo: userepo}
+func NewUserServices(userepo *UserRepositories, sessionRepo *sessions.SessionRepo) *UserService {
+	return &UserService{userRepo: userepo, sessionRepo: sessionRepo}
 }
 
 type UserServices interface {
 	Create(ctx context.Context, req *CreateUser) (*UserData, *response.ResponseError)
 	GetUserByID(ctx context.Context, userID string) (*UserData, error)
+	LoginWithSession(ctx context.Context, req *LoginUser, ipAddress, userAgent, deviceInfo string) (*UserData, *sessions.SessionsData, error)
 }
 
 func (us *UserService) Create(ctx context.Context, req *CreateUser) (*UserData, *response.ResponseError) {
@@ -60,10 +63,11 @@ func (us *UserService) Create(ctx context.Context, req *CreateUser) (*UserData, 
 	return us.userRepo.Create(ctx, *req)
 }
 
-func (r *UserRepositories) LoginWithSession(ctx context.Context, req *LoginUser, sessionRepo *sessions.SessionRepo, ipAddress, userAgent, deviceInfo string) (*UserData, *sessions.SessionsData, error) {
+func (us *UserService) LoginWithSession(ctx context.Context, req *LoginUser, ipAddress, userAgent, deviceInfo string) (*UserData, *sessions.SessionsData, error) {
 	// First authenticate the user
-	userData, err := r.Login(ctx, req)
+	userData, err := us.userRepo.Login(ctx, req)
 	if err != nil {
+		log.Printf("Login failed: %v", err) // Add this line to see the actual error
 		return nil, nil, err
 	}
 	sessionID := generate.GenerateRandomID(&generate.IDOpts{
@@ -97,8 +101,9 @@ func (r *UserRepositories) LoginWithSession(ctx context.Context, req *LoginUser,
 		ExpiresAt:    time.Now().Add(24 * time.Hour),
 	}
 
-	session, err := sessionRepo.Create(ctx, sessionReq)
+	session, err := us.sessionRepo.Create(ctx, sessionReq)
 	if err != nil {
+		log.Printf("Sessions failed: %v", err) // Add this line to see the actual error
 		return nil, nil, err
 	}
 

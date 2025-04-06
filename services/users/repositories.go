@@ -139,7 +139,7 @@ func (r *UserRepositories) GetUserByEmail(ctx context.Context, email string) (*U
 func (r *UserRepositories) Login(ctx context.Context, req *LoginUser) (*UserData, error) {
 	query := `
 	SELECT
-		user_id, full_name, username, email, role, balance, is_deleted, created_at, updated_at, password_hash
+		user_id, full_name, username, email, role, balance, is_deleted, created_at, updated_at, password
 	FROM users
 	WHERE
 		username = $1 AND is_deleted = false
