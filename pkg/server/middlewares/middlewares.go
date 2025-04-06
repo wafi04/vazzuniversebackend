@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/wafi04/vazzuniversebackend/pkg/config"
+	"github.com/wafi04/vazzuniversebackend/pkg/constants"
 )
 
 type UserData struct {
@@ -23,30 +24,31 @@ type UserData struct {
 	IsDeleted bool       `json:"isDeleted"  db:"is_deleted"`
 	Balance   int        `json:"balance" db:"balance"`
 	CreatedAt time.Time  `json:"created_at" db:"created_at"`
+	SessionID string     `json:"sessionId" db:"session_id"`
 	UpdatedAt *time.Time `json:"updated_at,omitempty" db:"updated_at"`
 }
 
 type JWTClaims struct {
-	UserID   string `json:"user_id"`
-	Email    string `json:"email"`
-	Username string `json:"username"`
+	UserID    string `json:"user_id"`
+	Email     string `json:"email"`
+	Username  string `json:"username"`
+	SessionID string `json:"sessionId"`
 	jwt.RegisteredClaims
 }
 
-var jwtSecretKey = []byte(config.LoadEnv("JWT_SECRET"))
-
 func ValidateToken(tokenString string) (*JWTClaims, error) {
-	// Check for empty token
+	config.LoadEnv("JWT_SECRET")
 	if tokenString == "" {
 		return nil, errors.New("empty token")
 	}
-
+	fmt.Println("tokenString", tokenString)
+	fmt.Println("constant", constants.JWT_SECRET)
 	// Parse the token
 	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return jwtSecretKey, nil
+		return constants.JWT_SECRET, nil
 	})
 
 	if err != nil {
@@ -77,9 +79,10 @@ func GenerateToken(user *UserData, hours int64) (string, error) {
 	}
 
 	claims := JWTClaims{
-		UserID:   user.UserID,
-		Email:    user.Email,
-		Username: user.Username,
+		UserID:    user.UserID,
+		Email:     user.Email,
+		Username:  user.Username,
+		SessionID: user.SessionID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(hours) * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -88,7 +91,7 @@ func GenerateToken(user *UserData, hours int64) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signedToken, err := token.SignedString(jwtSecretKey)
+	signedToken, err := token.SignedString(constants.JWT_SECRET)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign token: %w", err)
 	}
@@ -121,9 +124,8 @@ func AuthMiddleware() gin.HandlerFunc {
 		if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
 			accessToken = strings.TrimPrefix(authHeader, "Bearer ")
 		} else {
-			// Step 2: If no auth header, check cookie for access_token
 			var err error
-			accessToken, err = c.Cookie("access_token")
+			accessToken, err = c.Cookie("auth_token")
 			if err != nil {
 				accessToken = "" // Make sure it's empty if there's an error
 			}
@@ -212,20 +214,9 @@ func SetTokenCookie(c *gin.Context, name, token string, duration int) {
 }
 
 func ClearTokens(c *gin.Context) {
-	// Clear refresh token
-	c.SetCookie(
-		"refresh_token",
-		"",
-		-1,
-		"/",
-		"",
-		false,
-		true,
-	)
-
 	// Clear access token
 	c.SetCookie(
-		"access_token",
+		"auth_token",
 		"",
 		-1,
 		"/",

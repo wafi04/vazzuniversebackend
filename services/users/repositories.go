@@ -174,3 +174,32 @@ func (r *UserRepositories) Login(ctx context.Context, req *LoginUser) (*UserData
 
 	return &user, nil
 }
+
+func (r *UserRepositories) Logout(ctx context.Context, userID string) error {
+	query := `
+	UPDATE users
+	SET is_deleted = true
+	WHERE user_id = $1
+	`
+
+	_, err := r.MainDB.ExecContext(ctx, query, userID)
+	if err != nil {
+		return nil
+	}
+
+	return nil
+}
+
+func (r *UserRepositories) DeleteSession(ctx context.Context, sessionID string) error {
+	query := `
+	DELETE FROM sessions
+	WHERE session_id = $1
+	`
+
+	_, err := r.MainDB.ExecContext(ctx, query, sessionID)
+	if err != nil {
+		return nil
+	}
+
+	return nil
+}

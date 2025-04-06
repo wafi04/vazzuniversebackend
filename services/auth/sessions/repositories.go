@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/wafi04/vazzuniversebackend/pkg/utils/generate"
 )
 
 type SessionRepo struct {
@@ -21,12 +20,9 @@ func NewSessionRepo(mainDB *sqlx.DB, replicaDB *sqlx.DB) *SessionRepo {
 }
 
 func (sr *SessionRepo) Create(ctx context.Context, req *CreateSession) (*SessionsData, error) {
-	sessionID := generate.GenerateRandomID(&generate.IDOpts{
-		Amount: 10,
-	})
 
 	var session SessionsData
-	err := sr.MainDB.QueryRowContext(ctx, QueryInsert, sessionID, req.UserID, req.AccessToken, time.Now(), time.Now()).Scan(
+	err := sr.MainDB.QueryRowContext(ctx, QueryInsert, req.SessionID, req.UserID, req.AccessToken, time.Now(), time.Now()).Scan(
 		&session.SessionID,
 		&session.UserID,
 		&session.AccessToken,

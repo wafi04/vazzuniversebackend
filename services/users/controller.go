@@ -116,11 +116,12 @@ func (uc *UserController) Login(ctx *gin.Context) {
 
 	var loginReq LoginUser
 	if err := ctx.ShouldBindJSON(&loginReq); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"status":  "error",
-			"message": "Invalid request",
-			"error":   err.Error(),
-		})
+		respErr := response.NewResponseError(
+			http.StatusBadRequest,
+			ErrInvalidInput,
+			"Invalid Format Request",
+		)
+		response.Error(ctx, respErr)
 		return
 	}
 
@@ -153,7 +154,6 @@ func (uc *UserController) Login(ctx *gin.Context) {
 		return
 	}
 
-	// Set cookie with access token (optional)
 	middlewares.SetTokenCookie(ctx, "auth_token", session.AccessToken, session.ExpiresAt.Minute())
 	ctx.JSON(http.StatusOK, gin.H{
 		"status":  "success",
@@ -166,4 +166,24 @@ func (uc *UserController) Login(ctx *gin.Context) {
 		},
 	})
 
+}
+
+func (uc *UserController) Logout(ctx *gin.Context) {
+	userData, err := middlewares.GetUserFromGinContext(ctx)
+	if err != nil {
+		respErr := response.NewResponseError(
+			http.StatusUnauthorized,
+			ErrUnauthorized,
+			"Unauthorized",
+		)
+		response.Error(ctx, respErr)
+		return
+	}
+
+	uc.UserService.userRepo.Logout(ctx, userData.UserID)
+	uc.UserService.userRepo.DeleteSession(ctx, userData.SessionID)
+
+	middlewares.ClearTokens(ctx)
+
+	response.Success(ctx, http.StatusOK, "Logout successful")
 }

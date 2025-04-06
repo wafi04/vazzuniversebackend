@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/wafi04/vazzuniversebackend/pkg/server/middlewares"
+	"github.com/wafi04/vazzuniversebackend/pkg/utils/generate"
 	"github.com/wafi04/vazzuniversebackend/pkg/utils/response"
 	"github.com/wafi04/vazzuniversebackend/services/auth/sessions"
 )
@@ -65,6 +66,9 @@ func (r *UserRepositories) LoginWithSession(ctx context.Context, req *LoginUser,
 	if err != nil {
 		return nil, nil, err
 	}
+	sessionID := generate.GenerateRandomID(&generate.IDOpts{
+		Amount: 10,
+	})
 
 	accessToken, err := middlewares.GenerateToken(&middlewares.UserData{
 		UserID:    userData.UserID,
@@ -75,12 +79,14 @@ func (r *UserRepositories) LoginWithSession(ctx context.Context, req *LoginUser,
 		Balance:   userData.Balance,
 		CreatedAt: userData.CreatedAt,
 		UpdatedAt: userData.UpdatedAt,
+		SessionID: sessionID,
 	}, 24)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	sessionReq := &sessions.CreateSession{
+		SessionID:    sessionID,
 		UserID:       userData.UserID,
 		AccessToken:  accessToken,
 		IPAddress:    ipAddress,
@@ -105,4 +111,8 @@ func (us *UserService) GetUserByID(ctx context.Context, userID string) (*UserDat
 
 func isNotFoundError(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
+}
+
+func (us *UserService) Logout(ctx context.Context, userID string) error {
+	return us.userRepo.Logout(ctx, userID)
 }

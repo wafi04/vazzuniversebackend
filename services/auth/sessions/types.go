@@ -23,6 +23,7 @@ type SessionsData struct {
 }
 
 type CreateSession struct {
+	SessionID    string    `json:"sessionId"    db:"session_id"`
 	UserID       string    `json:"userId"       db:"user_id"`
 	AccessToken  string    `json:"accessToken"  db:"access_token"`
 	IPAddress    string    `json:"ipAddress"    db:"ip_address"`
