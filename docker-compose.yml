@@ -68,7 +68,7 @@ services:
     networks:
       - postgres_network
     env_file:
-       - ./deployment/.env.local:/app/.env.local
+      - ./deployment/.env.local:/app/.env.local
     environment:
       - TZ=Asia/Jakarta
       - DATABASE_MAIN_URL=postgres://postgres:postgres@postgresql-main:5432/main_db

@@ -31,8 +31,6 @@ jobs:
       - name: Write .env.local to VPS
         run: |
           echo "${{ secrets.ENV_LOCAL_CONTENT }}" > .env.local
-          echo "Isi file .env.local (lokal):"
-          cat .env.local
           scp .env.local vazzuniverse@103.127.98.128:~/deployment/.env.local
       
       - name: Debug files on VPS

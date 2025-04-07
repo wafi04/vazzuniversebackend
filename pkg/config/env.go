@@ -10,18 +10,23 @@ import (
 )
 
 func LoadConfig(env string) error {
-	rootDir, err := getRootDir()
-	if err != nil {
-		return fmt.Errorf("failed to get root directory: %v", err)
-	}
-
+	// Coba cari file .env.<env> di direktori saat ini
 	envFile := fmt.Sprintf(".env.%s", env)
-	err = godotenv.Load(filepath.Join(rootDir, envFile))
-	if err != nil {
-		return fmt.Errorf("error loading %s file: %v", envFile, err)
+	err := godotenv.Load(envFile)
+	if err == nil {
+		log.Printf("Loaded environment configuration from %s", envFile)
+		return nil
 	}
 
-	log.Printf("Loaded environment configuration from %s", envFile)
+	// Jika gagal, coba cari di direktori deployment
+	rootDir := "/app" // Lokasi default di dalam container Docker
+	envFilePath := filepath.Join(rootDir, envFile)
+	err = godotenv.Load(envFilePath)
+	if err != nil {
+		return fmt.Errorf("error loading %s file: %v", envFilePath, err)
+	}
+
+	log.Printf("Loaded environment configuration from %s", envFilePath)
 	return nil
 }
 
