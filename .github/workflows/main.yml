@@ -10,9 +10,11 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      # Langkah 1: Checkout code
       - name: Checkout code
         uses: actions/checkout@v2
         
+      # Langkah 2: Setup SSH untuk mengakses server VPS
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.7.0
         with:
@@ -20,32 +22,31 @@ jobs:
           
       - name: Create deployment directory
         run: |
-          # Disable host key checking for first connection
           mkdir -p ~/.ssh
           echo "StrictHostKeyChecking no" > ~/.ssh/config
-          
-          # Create a deployment directory with timestamp
           ssh vazzuniverse@103.127.98.128 'mkdir -p ~/deployment'
       
       - name: Copy codebase to VPS
         run: |
-          # Sync the codebase to VPS
           rsync -avz --exclude 'node_modules' --exclude '.git' ./ vazzuniverse@103.127.98.128:~/deployment/
           
+      - name: Write .env.local to VPS
+        run: |
+          echo "${{ secrets.ENV_LOCAL_CONTENT }}" > .env.local
+          scp .env.local vazzuniverse@103.127.98.128:~/deployment/.env.local
+      
+      - name: Debug files on VPS
+        run: |
+          ssh vazzuniverse@103.127.98.128 '
+            ls -la ~/deployment/
+            cat ~/deployment/.env.local
+          '
+      
       - name: Build and deploy on VPS
         run: |
-          # Copy environment file
-          scp .env.local vazzuniverse@103.127.98.128:~/deployment/.env.local
-          
-          # Execute deployment commands on the VPS
           ssh vazzuniverse@103.127.98.128 '
-            cd ~/deployment
-            # Build the Docker image
-            docker build -t backendgame:latest -f Dockerfile.prod .
-            
-            # Copy docker-compose to the home directory
-            cp docker-compose.yml ~/
-            
-            # Run docker-compose
-            cd ~/ && docker compose up -d
+            cd ~/deployment || exit 1
+            docker build -t backendgame:latest -f Dockerfile.prod . || exit 1
+            cp docker-compose.yml ~/ || exit 1
+            cd ~/ && docker compose up -d || exit 1
           '
