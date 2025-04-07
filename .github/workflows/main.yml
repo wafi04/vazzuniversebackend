@@ -42,10 +42,11 @@
 #             cat ~/deployment/.env.local
 #           '
       
-#       - name: Build and deploy on VPS
-#         run: |
-#           ssh vazzuniverse@103.127.98.128 '
-#           cd ~/deployment
-#           docker build -t backendgame:latest -f Dockerfile.prod . || exit 1
-#           docker compose up -d || exit 1
-#         '
+      - name: Build and deploy on VPS
+        run: |
+          ssh vazzuniverse@103.127.98.128 '
+            cd ~/deployment || exit 1
+            docker build -t backendgame:latest -f Dockerfile.prod . || exit 1
+            cp docker-compose.yml ~/ || exit 1
+            cd ~/ && docker compose up -d || exit 1
+          '
