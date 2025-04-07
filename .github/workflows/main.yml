@@ -1,4 +1,4 @@
-name: Deploy ke VPS
+name: Deploy to VPS
 
 on:
   pull_request:
@@ -10,37 +10,42 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout kode
+      - name: Checkout code
         uses: actions/checkout@v2
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-      
-      - name: Build Docker image
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          push: false
-          load: true
-          tags: backendgame:latest
-      
+        
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.7.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-      
-      - name: Deploy ke VPS
+          
+      - name: Create deployment directory
         run: |
-          # Nonaktifkan pemeriksaan host key untuk memudahkan koneksi pertama
+          # Disable host key checking for first connection
           mkdir -p ~/.ssh
           echo "StrictHostKeyChecking no" > ~/.ssh/config
           
-          # Salin file docker-compose.yml ke VPS
-          scp docker-compose.yml vazzuniverse@103.127.98.128:~/
+          # Create a deployment directory with timestamp
+          ssh vazzuniverse@103.127.98.128 'mkdir -p ~/deployment'
+      
+      - name: Copy codebase to VPS
+        run: |
+          # Sync the codebase to VPS
+          rsync -avz --exclude 'node_modules' --exclude '.git' ./ vazzuniverse@103.127.98.128:~/deployment/
           
-          # Jalankan docker-compose di VPS
+      - name: Build and deploy on VPS
+        run: |
+          # Copy environment file
+          scp .env.local vazzuniverse@103.127.98.128:~/deployment/.env.local
+          
+          # Execute deployment commands on the VPS
           ssh vazzuniverse@103.127.98.128 '
+            cd ~/deployment
+            # Build the Docker image
+            docker build -t backendgame:latest -f Dockerfile.prod .
             
-            # Jalankan docker-compose
-            cd ~/ && docker compose up -d
+            # Copy docker-compose to the home directory
+            cp docker-compose.yml ~/
+            
+            # Run docker-compose
+            cd ~/ && docker-compose up -d
           '
