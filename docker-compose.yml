@@ -58,22 +58,22 @@ services:
     networks:
       - postgres_network
   
-  backend-topupgame:
-    build:
-      context: .
-      dockerfile: Dockerfile.prod
-    container_name: backend-topupgame
-    ports:
-      - '8080:8080'
-    networks:
-      - postgres_network  
-    env_file :
-      - .env
-    depends_on:
-      postgresql-main:
-        condition: service_healthy
-      postgresql-replica:
-        condition: service_healthy
+  # backend-topupgame:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.prod
+  #   container_name: backend-topupgame
+  #   ports:
+  #     - '8080:8080'
+  #   networks:
+  #     - postgres_network  
+  #   env_file :
+  #     - .env
+  #   depends_on:
+  #     postgresql-main:
+  #       condition: service_healthy
+  #     postgresql-replica:
+  #       condition: service_healthy
         
 volumes:
   postgres_main_data:

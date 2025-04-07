@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/wafi04/vazzuniversebackend/pkg/config"
+	"github.com/wafi04/vazzuniversebackend/pkg/server/middlewares"
 	"github.com/wafi04/vazzuniversebackend/pkg/utils/response"
 	"github.com/wafi04/vazzuniversebackend/services/users"
 )
@@ -29,6 +30,8 @@ func SetUpAllRoutes() {
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, health)
 	})
+
+	router.Use(middlewares.ResponseTime())
 
 	usersDB := &users.Users{
 		MainDB:    db.Main,

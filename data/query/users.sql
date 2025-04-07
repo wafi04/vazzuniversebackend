@@ -6,6 +6,7 @@ CREATE TABLE users (
     email VARCHAR(200) UNIQUE,     -- Sudah otomatis ada indeks dari UNIQUE
     password TEXT,
     role VARCHAR(50) DEFAULT 'Member',
+    phone_number VARCHAR(50) NOT NULL,
     is_deleted BOOLEAN DEFAULT FALSE,
     balance INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

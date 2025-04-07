@@ -8,22 +8,16 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/wafi04/vazzuniversebackend/pkg/server/middlewares"
 	"github.com/wafi04/vazzuniversebackend/pkg/utils/response"
+	"github.com/wafi04/vazzuniversebackend/services/auth/sessions"
 )
 
 type UserController struct {
-	UserService *UserService
+	UserService    *UserService
+	SessionService *sessions.SessionService
 }
 
-func NewUserController(UserService *UserService) *UserController {
-	return &UserController{UserService: UserService}
-}
-
-type ReqData struct {
-	FullName *string `json:"fullName"`
-	Username string  `json:"username"`
-	Email    string  `json:"email"`
-	Password *string `json:"password,omitempty"`
-	WhatsApp string  `json:"whatsapp"`
+func NewUserController(UserService *UserService, sessionService *sessions.SessionService) *UserController {
+	return &UserController{UserService: UserService, SessionService: sessionService}
 }
 
 func (uc *UserController) CreateUser(ctx *gin.Context) {
@@ -72,6 +66,7 @@ func (uc *UserController) CreateUser(ctx *gin.Context) {
 		Balance:  0,
 	})
 	if respErr != nil {
+		log.Printf("%s", respErr.Message)
 		response.Error(ctx, respErr)
 		return
 	}
@@ -93,7 +88,7 @@ func (uc *UserController) GetProfile(ctx *gin.Context) {
 		return
 	}
 
-	user, err := uc.UserService.userRepo.GetUserByEmail(ctx, users.UserID)
+	user, err := uc.UserService.userRepo.GetUserByUsername(ctx, users.Username)
 
 	if err != nil {
 		respErr := response.NewResponseError(
@@ -144,7 +139,7 @@ func (uc *UserController) Login(ctx *gin.Context) {
 	)
 
 	if err != nil {
-		log.Printf("Login failed: %v", err) // Add this line to see the actual error
+		log.Printf("Login failed: %v", err)
 		respErr := response.NewResponseError(
 			http.StatusUnauthorized,
 			ErrUnauthorized,
@@ -153,8 +148,12 @@ func (uc *UserController) Login(ctx *gin.Context) {
 		response.Error(ctx, respErr)
 		return
 	}
+	log.Printf("second : %d", session.ExpiresAt.Second())
+	log.Printf("day : %d", session.ExpiresAt.Day())
+	log.Printf("hor : %d", session.ExpiresAt.Hour())
 
-	middlewares.SetTokenCookie(ctx, "auth_token", session.AccessToken, session.ExpiresAt.Minute())
+	middlewares.SetTokenCookie(ctx, "auth_token", session.AccessToken, 24*60*60)
+	ctx.Header("Authorization", "Bearer "+session.AccessToken)
 	ctx.JSON(http.StatusOK, gin.H{
 		"status":  "success",
 		"message": "Login successful",
@@ -185,4 +184,33 @@ func (uc *UserController) Logout(ctx *gin.Context) {
 
 	middlewares.ClearTokens(ctx)
 	response.Success(ctx, http.StatusOK, "Logout successful")
+}
+
+func (uc *UserController) ClearSessions(ctx *gin.Context) {
+	userData, err := middlewares.GetUserFromGinContext(ctx)
+	if err != nil {
+		respErr := response.NewResponseError(
+			http.StatusUnauthorized,
+			ErrUnauthorized,
+			"Unauthorized",
+		)
+		response.Error(ctx, respErr)
+		return
+	}
+
+	err = uc.SessionService.InvalidateAllUserSessions(ctx, userData.UserID)
+	if err != nil {
+		respErr := response.NewResponseError(
+			http.StatusInternalServerError,
+			"Failed to clear user sessions",
+			"INTERNAL_SERVER_ERROR",
+		)
+		response.Error(ctx, respErr)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "All user sessions cleared successfully",
+	})
 }

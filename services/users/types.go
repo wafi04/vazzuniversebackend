@@ -24,6 +24,14 @@ type UserData struct {
 	UpdatedAt *time.Time `json:"updated_at,omitempty" db:"updated_at"`
 }
 
+type ReqData struct {
+	FullName *string `json:"fullName"`
+	Username string  `json:"username"`
+	Email    string  `json:"email"`
+	Password *string `json:"password,omitempty"`
+	WhatsApp string  `json:"whatsapp"`
+}
+
 type CreateUser struct {
 	FullName *string `json:"fullName"`
 	Username string  `json:"username"`

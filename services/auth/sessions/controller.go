@@ -44,23 +44,20 @@ func (sc *SessionsController) DeleteSessions(ctx *gin.Context) {
 func (sc *SessionsController) ClearSessions(ctx *gin.Context) {
 	userID := ctx.Param("userId")
 	if userID == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"status":  "error",
-			"message": "User ID is required",
-		})
+		respErr := response.NewResponseError(
+			http.StatusBadRequest,
+			"User Id is Required",
+			"USER Not Found",
+		)
+		response.Error(ctx, respErr)
 		return
 	}
 
 	err := sc.sessionService.InvalidateAllUserSessions(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"status":  "error",
-			"message": "Failed to clear user sessions",
-			"error":   err.Error(),
-		})
 		respErr := response.NewResponseError(
 			http.StatusInternalServerError,
-			"INTERNAL_SERVER_ERROR",
+			"Failed to clear user sessions",
 			"INTERNAL_SERVER_ERROR",
 		)
 		response.Error(ctx, respErr)

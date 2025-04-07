@@ -12,38 +12,15 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/wafi04/vazzuniversebackend/pkg/config"
 	"github.com/wafi04/vazzuniversebackend/pkg/constants"
+	"github.com/wafi04/vazzuniversebackend/services/auth/sessions"
 )
-
-type UserData struct {
-	UserID    string     `json:"userId" db:"user_id"`
-	Fullname  *string    `json:"fullName"  db:"full_name"`
-	Username  string     `json:"username"  db:"username"`
-	Email     string     `json:"email"  db:"email"`
-	Password  *string    `json:"password,omitempty"  db:"password"`
-	Role      string     `json:"role"  db:"role"`
-	IsDeleted bool       `json:"isDeleted"  db:"is_deleted"`
-	Balance   int        `json:"balance" db:"balance"`
-	CreatedAt time.Time  `json:"created_at" db:"created_at"`
-	SessionID string     `json:"sessionId" db:"session_id"`
-	UpdatedAt *time.Time `json:"updated_at,omitempty" db:"updated_at"`
-}
-
-type JWTClaims struct {
-	UserID    string `json:"user_id"`
-	Email     string `json:"email"`
-	Username  string `json:"username"`
-	SessionID string `json:"sessionId"`
-	jwt.RegisteredClaims
-}
 
 func ValidateToken(tokenString string) (*JWTClaims, error) {
 	config.LoadEnv("JWT_SECRET")
 	if tokenString == "" {
 		return nil, errors.New("empty token")
 	}
-	fmt.Println("tokenString", tokenString)
-	fmt.Println("constant", constants.JWT_SECRET)
-	// Parse the token
+
 	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -60,7 +37,6 @@ func ValidateToken(tokenString string) (*JWTClaims, error) {
 		return nil, errors.New("invalid token")
 	}
 
-	// Check if token is expired
 	if time.Now().Unix() > claims.ExpiresAt.Unix() {
 		return nil, errors.New("token expired")
 	}
@@ -86,7 +62,7 @@ func GenerateToken(user *UserData, hours int64) (string, error) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(hours) * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Issuer:    "wafiuddin",
+			Issuer:    config.LoadEnv("AUTHOR"),
 		},
 	}
 
@@ -114,10 +90,8 @@ func GetUserFromGinContext(c *gin.Context) (*UserData, error) {
 	}
 	return userInfo, nil
 }
-
-func AuthMiddleware() gin.HandlerFunc {
+func AuthMiddleware(sessionService *sessions.SessionService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Step 1: Try to get token from Authorization header first (Bearer token)
 		authHeader := c.GetHeader("Authorization")
 		var accessToken string
 
@@ -127,18 +101,51 @@ func AuthMiddleware() gin.HandlerFunc {
 			var err error
 			accessToken, err = c.Cookie("auth_token")
 			if err != nil {
-				accessToken = "" // Make sure it's empty if there's an error
+				log.Printf("Cookie not found: %v", err)
+				accessToken = ""
+			} else {
+				log.Printf("Found auth_token cookie: %s", accessToken)
 			}
 		}
 
-		// Try to validate the access token if it exists
+		log.Printf("%s", accessToken)
 		if accessToken != "" {
 			claims, err := ValidateToken(accessToken)
 			if err == nil {
+				// Validate session using sessionID from JWT claims
+				sessionData, err := sessionService.GetBySessionID(c.Request.Context(), claims.SessionID)
+				if err != nil {
+					log.Printf("Session validation error: %v", err)
+					c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+						"success": false,
+						"error":   "UNAUTHORIZED",
+						"message": "Session is invalid or expired",
+						"details": "Invalid session",
+					})
+					return
+				}
+
+				// Check if session is still active (not invalidated)
+				if !sessionData.IsAccess {
+					c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+						"success": false,
+						"error":   "UNAUTHORIZED",
+						"message": "Session has been invalidated",
+						"details": "Inactive session",
+					})
+					return
+				}
+
+				err = sessionService.UpdateLastActivity(c.Request.Context(), claims.SessionID)
+				if err != nil {
+					log.Printf("Failed to update last activity: %v", err)
+				}
+
 				user := &UserData{
-					UserID:   claims.UserID,
-					Email:    claims.Email,
-					Username: claims.Username,
+					UserID:    claims.UserID,
+					Email:     claims.Email,
+					Username:  claims.Username,
+					SessionID: claims.SessionID,
 				}
 				c.Set(string(UserContextKey), user)
 				c.Next()
@@ -147,43 +154,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			log.Printf("Access token error: %v", err)
 		}
 
-		refreshToken, err := c.Cookie("refresh_token")
-		if err == nil && refreshToken != "" {
-			claims, err := ValidateToken(refreshToken)
-			if err == nil {
-				user := &UserData{
-					UserID:   claims.UserID,
-					Email:    claims.Email,
-					Username: claims.Username,
-				}
-
-				newAccessToken, err := GenerateToken(user, 24)
-				if err != nil {
-					log.Printf("Failed to generate new access token: %v", err)
-					c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-						"success": false,
-						"error":   "INTERNAL_SERVER_ERROR",
-						"message": "Failed to generate new access token",
-						"details": err.Error(),
-					})
-					return
-				}
-
-				// Set new access token cookie
-				SetTokenCookie(c, "access_token", newAccessToken, 24*3600)
-
-				c.Header("Authorization", "Bearer "+newAccessToken)
-
-				// Set user in context
-				c.Set(string(UserContextKey), user)
-				c.Next()
-				return
-			}
-			// Log refresh token error
-			log.Printf("Refresh token error: %v", err)
-		}
-
-		// Step 4: No valid tokens found
+		// No valid tokens found
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 			"success": false,
 			"error":   "UNAUTHORIZED",
@@ -192,29 +163,26 @@ func AuthMiddleware() gin.HandlerFunc {
 		})
 	}
 }
-
 func SetTokenCookie(c *gin.Context, name, token string, duration int) {
-	// Secure and HttpOnly flags should be true in production
-	secure := false
-	if config.LoadEnv("ENV") == "production" {
-		secure = true
-	}
+	// SameSite attribute penting untuk localhost
+	c.SetSameSite(http.SameSiteNoneMode)
 
 	c.SetCookie(
 		name,
 		token,
 		duration,
 		"/",
-		config.LoadEnv("APP_URL"),
-		secure,
-		true,
+		"",    // Kosongkan domain untuk localhost
+		false, // Secure harus false untuk http
+		false, // Gunakan false sementara untuk debugging (biasanya true)
 	)
 
-	log.Printf("Cookie %s set with duration %d seconds", name, duration)
-}
+	// Tambahkan juga sebagai header untuk debug
+	c.Header("Set-Cookie", name+"="+token+"; Path=/; Max-Age="+fmt.Sprint(duration))
 
+	log.Printf("Cookie %s set with value length %d", name, len(token))
+}
 func ClearTokens(c *gin.Context) {
-	// Clear access token
 	c.SetCookie(
 		"auth_token",
 		"",
@@ -222,7 +190,7 @@ func ClearTokens(c *gin.Context) {
 		"/",
 		"",
 		false,
-		true,
+		false,
 	)
 
 	// Clear Authorization header
@@ -238,7 +206,6 @@ func ResponseTime() gin.HandlerFunc {
 		duration := time.Since(start)
 		c.Header("X-Response-Time", duration.String())
 
-		// Optional: Log response time for monitoring
 		log.Printf("[%s] %s - %s", c.Request.Method, c.Request.URL.Path, duration)
 	}
 }

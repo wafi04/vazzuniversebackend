@@ -84,7 +84,7 @@ func (us *UserService) LoginWithSession(ctx context.Context, req *LoginUser, ipA
 		CreatedAt: userData.CreatedAt,
 		UpdatedAt: userData.UpdatedAt,
 		SessionID: sessionID,
-	}, 24)
+	}, 3600*24)
 	if err != nil {
 		return nil, nil, err
 	}
