@@ -58,7 +58,7 @@ services:
     networks:
       - postgres_network
     
-  backend-topupgame:
+   backend-topupgame:
     build:
       context: .
       dockerfile: Dockerfile.prod
@@ -67,17 +67,11 @@ services:
       - '8080:8080'
     networks:
       - postgres_network
-    env_file:
+    volumes:
       - ./deployment/.env.local:/app/.env.local
     environment:
       - TZ=Asia/Jakarta
-      - DATABASE_MAIN_URL=postgres://postgres:postgres@postgresql-main:5432/main_db
-      - DATABASE_REPLICA_URL=postgres://postgres:postgres@postgresql-replica:5432/main_db
-      - PORT=8080
-      - JWT_SECRET=jsjxakabxjaigisyqyg189
-      - APP_URL=localhost
-      - ENV=production
-      - AUTHOR=wafiuddinwafiq
+      - ENV_FILE=/app/.env.local
     restart: on-failure
     depends_on:
       postgresql-main:
