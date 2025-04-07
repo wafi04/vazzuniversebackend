@@ -1,15 +1,45 @@
-name : Deploy Backend
-
+name: Backend Game
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main]
   push:
-    branches:
-      - main
-  
+    branches: [main]
+
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
     steps:
-      -name 
+      - uses: actions/checkout@v2
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: false
+          load: true
+          tags: my-backendgame:latest
+      
+      - name: Install cloudflared
+        run: |
+          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared-linux-amd64.deb
+      
+      - name: Deploy to VPS
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          
+          # Using cloudflared for SSH connection
+          ssh -i ~/.ssh/id_rsa -o "ProxyCommand=cloudflared access ssh --hostname %h" -p 80 -o StrictHostKeyChecking=no root@wafi.zilog.my.id << 'EOF'
+            # Commands to run on the VPS
+            docker pull my-backend-game:latest || true
+            docker stop my-backend-container || true
+            docker rm my-backend-container || true
+            docker run -d --name my-backend-container -p 8080:8080 my-backend-game:latest
+          EOF
