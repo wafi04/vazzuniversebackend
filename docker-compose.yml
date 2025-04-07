@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgresql-main:
     image: postgres:15
@@ -59,7 +57,7 @@ services:
       "
     networks:
       - postgres_network
-
+    
   backend-topupgame:
     build:
       context: .
@@ -69,11 +67,17 @@ services:
       - '8080:8080'
     networks:
       - postgres_network
-    volumes:
-      - ./deployment/.env.local:/app/.env.local
+    env_file:
+      - .env.local
     environment:
       - TZ=Asia/Jakarta
-      - ENV_FILE=/app/.env.local
+      - DATABASE_MAIN_URL=postgres://postgres:postgres@postgresql-main:5432/main_db
+      - DATABASE_REPLICA_URL=postgres://postgres:postgres@postgresql-replica:5432/main_db
+      - PORT=8080
+      - JWT_SECRET=jsjxakabxjaigisyqyg189
+      - APP_URL=localhost
+      - ENV=production
+      - AUTHOR=wafiuddinwafiq
     restart: on-failure
     depends_on:
       postgresql-main:
@@ -84,7 +88,6 @@ services:
       sleep 30 &&
       ./main
       "
-
 volumes:
   postgres_main_data:
   postgres_replica_data:

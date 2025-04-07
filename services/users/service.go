@@ -2,7 +2,7 @@ package users
 
 import (
 	"context"
-	"log"
+	"net/http"
 	"strings"
 	"time"
 
@@ -63,12 +63,30 @@ func (us *UserService) Create(ctx context.Context, req *CreateUser) (*UserData, 
 	return us.userRepo.Create(ctx, *req)
 }
 
-func (us *UserService) LoginWithSession(ctx context.Context, req *LoginUser, ipAddress, userAgent, deviceInfo string) (*UserData, *sessions.SessionsData, error) {
+func (us *UserService) LoginWithSession(ctx context.Context, req *LoginUser, ipAddress, userAgent, deviceInfo string) (*UserData, *sessions.SessionsData, *response.ResponseError) {
 	// First authenticate the user
 	userData, err := us.userRepo.Login(ctx, req)
 	if err != nil {
-		log.Printf("Login failed: %v", err) // Add this line to see the actual error
-		return nil, nil, err
+		switch err.Error() {
+		case string(ErrInvalidCredentials):
+			return nil, nil, response.NewResponseError(
+				http.StatusUnauthorized,
+				"Invalid credentials",
+				"The username you entered doesn't exist",
+			)
+		case string(ErrInvalidPassword):
+			return nil, nil, response.NewResponseError(
+				http.StatusUnauthorized,
+				"Invalid password",
+				"The password you entered is incorrect",
+			)
+		default:
+			return nil, nil, response.NewResponseError(
+				http.StatusInternalServerError,
+				"Internal server error",
+				"An unexpected error occurred during login",
+			)
+		}
 	}
 	sessionID := generate.GenerateRandomID(&generate.IDOpts{
 		Amount: 10,
@@ -86,7 +104,11 @@ func (us *UserService) LoginWithSession(ctx context.Context, req *LoginUser, ipA
 		SessionID: sessionID,
 	}, 3600*24)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, response.NewResponseError(
+			http.StatusBadGateway,
+			"Invalid Generate Token",
+			"BAD_GATEWAY",
+		)
 	}
 
 	sessionReq := &sessions.CreateSession{
@@ -103,8 +125,11 @@ func (us *UserService) LoginWithSession(ctx context.Context, req *LoginUser, ipA
 
 	session, err := us.sessionRepo.Create(ctx, sessionReq)
 	if err != nil {
-		log.Printf("Sessions failed: %v", err) // Add this line to see the actual error
-		return nil, nil, err
+		return nil, nil, response.NewResponseError(
+			http.StatusBadRequest,
+			"Faield To Create Sessions",
+			sessions.ErrSessionsInvalid,
+		)
 	}
 
 	return userData, session, nil

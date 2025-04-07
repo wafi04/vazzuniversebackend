@@ -12,6 +12,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/wafi04/vazzuniversebackend/pkg/config"
 	"github.com/wafi04/vazzuniversebackend/pkg/constants"
+	"github.com/wafi04/vazzuniversebackend/pkg/utils/response"
 	"github.com/wafi04/vazzuniversebackend/services/auth/sessions"
 )
 
@@ -101,10 +102,10 @@ func AuthMiddleware(sessionService *sessions.SessionService) gin.HandlerFunc {
 			var err error
 			accessToken, err = c.Cookie("auth_token")
 			if err != nil {
-				log.Printf("Cookie not found: %v", err)
 				accessToken = ""
+				response.NewResponseError(http.StatusUnauthorized, "USER UNATHORIZED", "UNAUTHORIZED")
 			} else {
-				log.Printf("Found auth_token cookie: %s", accessToken)
+				response.NewResponseError(http.StatusUnauthorized, "USER UNATHORIZED", "UNAUTHORIZED")
 			}
 		}
 
@@ -115,7 +116,6 @@ func AuthMiddleware(sessionService *sessions.SessionService) gin.HandlerFunc {
 				// Validate session using sessionID from JWT claims
 				sessionData, err := sessionService.GetBySessionID(c.Request.Context(), claims.SessionID)
 				if err != nil {
-					log.Printf("Session validation error: %v", err)
 					c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 						"success": false,
 						"error":   "UNAUTHORIZED",
@@ -138,7 +138,7 @@ func AuthMiddleware(sessionService *sessions.SessionService) gin.HandlerFunc {
 
 				err = sessionService.UpdateLastActivity(c.Request.Context(), claims.SessionID)
 				if err != nil {
-					log.Printf("Failed to update last activity: %v", err)
+					response.NewResponseError(http.StatusBadRequest, "Sessions Invalidate", "Please Login Frist!")
 				}
 
 				user := &UserData{
@@ -151,7 +151,6 @@ func AuthMiddleware(sessionService *sessions.SessionService) gin.HandlerFunc {
 				c.Next()
 				return
 			}
-			log.Printf("Access token error: %v", err)
 		}
 
 		// No valid tokens found
@@ -180,7 +179,6 @@ func SetTokenCookie(c *gin.Context, name, token string, duration int) {
 	// Tambahkan juga sebagai header untuk debug
 	c.Header("Set-Cookie", name+"="+token+"; Path=/; Max-Age="+fmt.Sprint(duration))
 
-	log.Printf("Cookie %s set with value length %d", name, len(token))
 }
 func ClearTokens(c *gin.Context) {
 	c.SetCookie(
@@ -195,8 +193,6 @@ func ClearTokens(c *gin.Context) {
 
 	// Clear Authorization header
 	c.Header("Authorization", "")
-
-	log.Printf("All authentication tokens cleared")
 }
 
 func ResponseTime() gin.HandlerFunc {
@@ -205,7 +201,5 @@ func ResponseTime() gin.HandlerFunc {
 		c.Next()
 		duration := time.Since(start)
 		c.Header("X-Response-Time", duration.String())
-
-		log.Printf("[%s] %s - %s", c.Request.Method, c.Request.URL.Path, duration)
 	}
 }
