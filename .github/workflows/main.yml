@@ -47,5 +47,5 @@ jobs:
             cp docker-compose.yml ~/
             
             # Run docker-compose
-            cd ~/ && docker-compose up -d
+            cd ~/ && docker compose up -d
           '
