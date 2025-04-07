@@ -10,11 +10,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      # Langkah 1: Checkout code
       - name: Checkout code
         uses: actions/checkout@v2
         
-      # Langkah 2: Setup SSH untuk mengakses server VPS
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.7.0
         with:
@@ -33,12 +31,16 @@ jobs:
       - name: Write .env.local to VPS
         run: |
           echo "${{ secrets.ENV_LOCAL_CONTENT }}" > .env.local
+          echo "Isi file .env.local (lokal):"
+          cat .env.local
           scp .env.local vazzuniverse@103.127.98.128:~/deployment/.env.local
       
       - name: Debug files on VPS
         run: |
           ssh vazzuniverse@103.127.98.128 '
+            echo "Isi direktori ~/deployment/:"
             ls -la ~/deployment/
+            echo "Isi file ~/deployment/.env.local:"
             cat ~/deployment/.env.local
           '
       
